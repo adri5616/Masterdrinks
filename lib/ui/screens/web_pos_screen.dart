@@ -28,6 +28,8 @@ class _WebPosScreenState extends State<WebPosScreen> {
   String? _currentLoadedUrl;
   bool _isLoadingWeb = true;
   bool _isInitializing = false;
+  bool _hasWebError = false;
+  String? _webErrorMessage;
   final TextEditingController _clientIpInputController = TextEditingController(text: '192.168.43.1');
 
   @override
@@ -43,7 +45,7 @@ class _WebPosScreenState extends State<WebPosScreen> {
   }
 
   Future<void> _requestPermissions() async {
-    if (!kIsWeb && Platform.isAndroid) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       try {
         await [
           Permission.camera,
@@ -106,6 +108,7 @@ class _WebPosScreenState extends State<WebPosScreen> {
             if (mounted) {
               setState(() {
                 _isLoadingWeb = true;
+                _hasWebError = false;
               });
             }
           },
@@ -122,6 +125,17 @@ class _WebPosScreenState extends State<WebPosScreen> {
                 'isServer': server.isServerRole,
               };
               controller.runJavaScript("if (window.onMasterDrinksNativeInfo) window.onMasterDrinksNativeInfo(${jsonEncode(info)});");
+            }
+          },
+          onWebResourceError: (WebResourceError error) {
+            if (error.isForMainFrame ?? true) {
+              if (mounted) {
+                setState(() {
+                  _isLoadingWeb = false;
+                  _hasWebError = true;
+                  _webErrorMessage = error.description;
+                });
+              }
             }
           },
           onNavigationRequest: (NavigationRequest request) {
@@ -234,7 +248,7 @@ class _WebPosScreenState extends State<WebPosScreen> {
   @override
   Widget build(BuildContext context) {
     final server = context.watch<ServerProvider>();
-    final isAndroid = !kIsWeb && Platform.isAndroid;
+    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
     // 1. Cargando preferencias iniciales
     if (!server.isInitialized) {
@@ -250,9 +264,9 @@ class _WebPosScreenState extends State<WebPosScreen> {
       return _buildInitialSetupScreen(server);
     }
 
-    // 2. Tablet configurada: cargar WebView con la URL correspondiente
+    // 2. Dispositivo móvil configurado: cargar WebView con la URL correspondiente
     final targetUrl = server.effectiveWebUrl;
-    if (isAndroid && (_webViewController == null || _currentLoadedUrl != targetUrl)) {
+    if (isMobile && (_webViewController == null || _currentLoadedUrl != targetUrl)) {
       _initializeWebView(targetUrl);
     }
 
@@ -261,17 +275,18 @@ class _WebPosScreenState extends State<WebPosScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Vista Web (POS Nativo)
-            if (isAndroid && _webViewController != null) ...[
-              Positioned.fill(
-                child: WebViewWidget(
-                  controller: _webViewController!,
-                  gestureRecognizers: {
-                    Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
-                  },
+            // Vista Web (POS Nativo en Móviles Android / iPhone)
+            if (isMobile) ...[
+              if (_webViewController != null)
+                Positioned.fill(
+                  child: WebViewWidget(
+                    controller: _webViewController!,
+                    gestureRecognizers: {
+                      Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                    },
+                  ),
                 ),
-              ),
-              if (_isLoadingWeb)
+              if (_isLoadingWeb || _webViewController == null)
                 Positioned.fill(
                   child: Container(
                     color: const Color(0xFF0A0A0F),
@@ -289,6 +304,10 @@ class _WebPosScreenState extends State<WebPosScreen> {
                       ),
                     ),
                   ),
+                ),
+              if (_hasWebError)
+                Positioned.fill(
+                  child: _buildErrorOverlay(server, targetUrl),
                 ),
             ] else ...[
               // Vista en Windows Desktop para pruebas y control
@@ -491,7 +510,7 @@ class _WebPosScreenState extends State<WebPosScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'TABLET TERMINAL (CLIENTE)',
+                                  'DISPOSITIVO CLIENTE (TERMINAL / IPHONE)',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -500,7 +519,7 @@ class _WebPosScreenState extends State<WebPosScreen> {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Esta tablet se conecta por Wi-Fi a la tablet servidor para registrar ventas.',
+                                  'Para iPhone o tablets secundarias. Se conecta por Wi-Fi a la tablet servidora para vender o anular comandas a distancia.',
                                   style: TextStyle(color: Colors.white60, fontSize: 12),
                                 ),
                               ],
@@ -513,6 +532,92 @@ class _WebPosScreenState extends State<WebPosScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Pantalla de error cuando no puede comunicarse con la tablet servidor
+  Widget _buildErrorOverlay(ServerProvider server, String targetUrl) {
+    return Container(
+      color: const Color(0xFF0A0A0F),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16120E),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.wifi_off_rounded, color: Colors.redAccent, size: 52),
+                const SizedBox(height: 16),
+                const Text(
+                  'No se pudo conectar a la Tablet Servidor',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Verifica que la tablet Samsung servidora esté encendida con el servidor en línea y que ambos dispositivos estén en la misma red Wi-Fi o Hotspot.\n\nIntentando conectar a:\n$targetUrl',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _hasWebError = false;
+                            _isLoadingWeb = true;
+                          });
+                          _webViewController?.reload();
+                        },
+                        icon: const Icon(Icons.refresh, color: AppTheme.amberGold),
+                        label: const Text('Reintentar', style: TextStyle(color: AppTheme.amberGold)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppTheme.amberGold),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final ok = await ServerPasswordDialog.verify(context);
+                          if (!ok) return;
+                          if (!mounted) return;
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ServerScreen()),
+                          ).then((_) {
+                            setState(() {
+                              _hasWebError = false;
+                            });
+                            final updatedUrl = server.effectiveWebUrl;
+                            _initializeWebView(updatedUrl);
+                          });
+                        },
+                        icon: const Icon(Icons.settings, color: Colors.black),
+                        label: const Text('Cambiar IP', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.amberGold,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -561,6 +666,8 @@ class _WebPosScreenState extends State<WebPosScreen> {
               if (ip.isNotEmpty) {
                 Navigator.of(ctx).pop();
                 await server.configureAsClient(ip);
+                final newUrl = server.effectiveWebUrl;
+                _initializeWebView(newUrl);
               }
             },
             style: ElevatedButton.styleFrom(

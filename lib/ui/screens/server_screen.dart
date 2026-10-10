@@ -152,7 +152,7 @@ class _ServerScreenState extends State<ServerScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'TABLET CLIENTE (TERMINAL)',
+                                  'MODO CLIENTE (TERMINAL / IPHONE)',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -360,7 +360,7 @@ class _ServerScreenState extends State<ServerScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'TABLET EN MODO CLIENTE',
+                                  'DISPOSITIVO EN MODO CLIENTE',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
@@ -370,7 +370,7 @@ class _ServerScreenState extends State<ServerScreen> {
                                 ),
                                 SizedBox(height: 2),
                                 Text(
-                                  'Conecta esta tablet a la tablet que corre el servidor',
+                                  'Conecta este iPhone o tablet a la tablet Samsung que corre el servidor',
                                   style: TextStyle(color: Colors.white70, fontSize: 12),
                                 ),
                               ],

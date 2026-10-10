@@ -74,6 +74,10 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>MasterDrinks requiere acceso a la red local para el servidor POS y la conexión con impresoras.</string>
+	<string>MasterDrinks requiere acceso a la red local para comunicarse con el servidor POS e impresoras.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>MasterDrinks requiere acceso a la cámara para la verificación biométrica y escaneo en el sistema POS.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MasterDrinks puede requerir acceso al micrófono para funciones del sistema.</string>
 </dict>
 </plist>

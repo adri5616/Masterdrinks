@@ -62,13 +62,18 @@ class ServerProvider extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      _tabletRole = prefs.getString('tablet_role') ?? 'SERVER';
+      _tabletRole = prefs.getString('tablet_role');
       _clientServerIp = prefs.getString('client_server_ip') ?? '192.168.43.1';
       _clientServerPort = prefs.getInt('client_server_port') ?? 3000;
 
+      // En plataformas de escritorio (Windows/Mac/Linux), si no se ha configurado rol, actuar como SERVIDOR por defecto
+      if (_tabletRole == null && !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+        _tabletRole = 'SERVER';
+      }
+
       if (_tabletRole == 'SERVER') {
         await startServer(port: _serverPort);
-      } else {
+      } else if (_tabletRole == 'CLIENT') {
         ApiService.instance.setBaseUrl('http://$_clientServerIp:$_clientServerPort');
       }
     } catch (e) {

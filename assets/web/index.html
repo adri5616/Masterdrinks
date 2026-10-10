@@ -1,0 +1,2270 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Sistema POS y Administrativo Premium para festivales y eventos musicales.">
+    <title>MasterDrinks POS | Sistema de Ventas</title>
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MasterDrinks">
+    <link rel="apple-touch-icon" href="logo_masterdrinks.jpg">
+    <link rel="icon" type="image/jpeg" href="logo_masterdrinks.jpg">
+    <link rel="shortcut icon" href="logo_masterdrinks.jpg">
+
+    <!-- Local Fonts (100% Offline) -->
+    <link rel="stylesheet" href="fonts.css?v=123">
+
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css?v=136">
+</head>
+
+<body>
+    <!-- Background Glow Blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <!-- 1. GENERAL LOGIN VIEW -->
+    <main id="login-view" class="auth-container">
+        <!-- Botón de Pantalla Completa en la parte superior izquierda -->
+        <button type="button" id="btn-toggle-fullscreen" class="btn-fullscreen-topleft" title="Pantalla Completa">⛶</button>
+
+        <div class="glass-card auth-card">
+            <header class="auth-header">
+                <img src="logo_masterdrinks.jpg" alt="MasterDrinks POS" class="login-brand-logo">
+                <span class="instancia-badge hide"></span>
+            </header>
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-username">Usuario</label>
+                    <input type="text" id="login-username" placeholder="Ej. cajero_norte_1" required
+                        autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" placeholder="••••••••" required
+                        autocomplete="current-password">
+                </div>
+                <button type="submit" class="primary-btn full-btn">Iniciar Sesión</button>
+                <div style="margin-top: 12px; text-align: center;">
+                    <button type="button" id="btn-login-facial-directo" class="secondary-btn full-btn" style="border-color: #38bdf8; color: #38bdf8; font-weight: 700;">
+                        👤 Entrar con Escáner Facial (PIN 0000)
+                    </button>
+                </div>
+            </form>
+            <div id="login-error" class="error-msg hide"></div>
+        </div>
+    </main>
+
+    <!-- El filtro de enfoque del cartel. Es una máscara de enfoque de toda la
+         vida: cada punto se refuerza restándole un poco a sus cuatro vecinos.
+         La suma del núcleo es 1, así que no aclara ni oscurece la imagen; sólo
+         devuelve el filo que pierde una foto pequeña al estirarse.
+
+         Va aquí, en el documento, porque CSS sólo sabe hacer desenfoques y
+         esto es lo contrario. Se aplica únicamente cuando el cartel se queda
+         corto para la pantalla (ver .cartel-estirado). -->
+    <svg class="filtros-ocultos" aria-hidden="true" focusable="false">
+        <filter id="afilar-cartel" color-interpolation-filters="sRGB">
+            <feConvolveMatrix order="3" preserveAlpha="true" divisor="1"
+                kernelMatrix="0 -0.25 0  -0.25 2 -0.25  0 -0.25 0" />
+        </filter>
+    </svg>
+
+    <!-- 2. WAITER LOCK SECURITY MODAL -->
+    <!-- Pantalla de clave de mesero. Negra y partida en dos: el cartel del
+         evento ocupa la mitad izquierda de canto a canto y la clave se teclea
+         en la derecha.
+
+         No lleva tarjeta ni marco. El cartel ES el fondo de su mitad: en una
+         pantalla que sale una vez por comanda, lo que se ve desde el otro
+         lado de la barra tiene que ser el evento, no un recuadro con una foto
+         pequeña dentro.
+
+         El color del botón y del toque de las teclas sale del propio cartel
+         (ver pintarTemaDelAfiche en app.js). Todo lo demás es negro y blanco,
+         que es lo que deja que el cartel mande. -->
+    <div id="waiter-lock-modal" class="modal-overlay pantalla-pin hide">
+        <!-- Botón de Pantalla Completa en la parte superior derecha -->
+        <button type="button" id="waiter-fullscreen-btn" class="btn-fullscreen-topright" title="Pantalla Completa">⛶</button>
+
+        <div class="pin-escena">
+
+            <!-- ---------- Izquierda: el cartel ---------- -->
+            <section class="pin-cartel">
+                <img id="ficha-afiche-img" class="hide" alt="Cartel del evento">
+                <!-- Sin cartel no se deja un rectángulo negro mudo. -->
+                <span id="ficha-afiche-vacio" class="pin-cartel-vacio">MasterDrinks</span>
+
+                <div class="pin-cartel-pie">
+                    <strong id="ficha-evento">MasterDrinks</strong>
+                    <span class="pin-cartel-datos">
+                        <span id="ficha-fecha">—</span>
+                        <i aria-hidden="true">·</i>
+                        <span id="ficha-lugar">—</span>
+                    </span>
+                </div>
+            </section>
+
+            <!-- ---------- Derecha: la clave ---------- -->
+            <section class="pin-panel">
+                <p class="pin-quien">
+                    <span id="ficha-barra">—</span>
+                    <i aria-hidden="true">·</i>
+                    <span id="active-cajero-name">—</span>
+                </p>
+
+                <div class="pin-dots-container" id="pin-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+
+                <div class="pin-keyboard">
+                    <button class="pin-btn" data-key="1">1</button>
+                    <button class="pin-btn" data-key="2">2</button>
+                    <button class="pin-btn" data-key="3">3</button>
+                    <button class="pin-btn" data-key="4">4</button>
+                    <button class="pin-btn" data-key="5">5</button>
+                    <button class="pin-btn" data-key="6">6</button>
+                    <button class="pin-btn" data-key="7">7</button>
+                    <button class="pin-btn" data-key="8">8</button>
+                    <button class="pin-btn" data-key="9">9</button>
+                    <span class="pin-hueco" aria-hidden="true"></span>
+                    <button class="pin-btn" data-key="0">0</button>
+                    <!-- Un toque borra una cifra; mantener pulsado las borra
+                         todas. La tecla "C" de antes no está: ocupaba un sitio
+                         del teclado para algo que se usa una vez de cada cien,
+                         y con cola en la barra lo que hace falta es que el 0
+                         esté donde el pulgar lo busca. -->
+                    <button class="pin-btn system" id="pin-back" aria-label="Borrar">⌫</button>
+                </div>
+
+                <button type="button" class="pin-enter" id="pin-enter">
+                    <svg class="pin-enter-icono" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M10 8l4 4-4 4M14 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                    Ingresar
+                </button>
+
+                <div id="waiter-error" class="error-msg hide"></div>
+
+                <!-- La salida escondida al login: mantener pulsado el candado
+                     tres segundos cierra la sesión del cajero. Va en la
+                     esquina y apagado; quien no lo sabe, ve un icono y ya. -->
+                <span class="security-icon" id="salida-oculta" title="">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="4" y="10" width="16" height="10" rx="2.5" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M8 10V7.5a4 4 0 0 1 8 0V10" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </span>
+            </section>
+        </div>
+    </div>
+
+    <!-- 3. MAIN POS SALES PORTAL -->
+    <div id="pos-view" class="portal-container hide">
+        <div id="pos-sidebar-backdrop" class="pos-sidebar-backdrop hide"></div>
+
+        <div class="pos-layout" id="pos-layout">
+            <!-- Columna izquierda: Herramientas & Branding -->
+            <aside class="pos-sidebar" id="pos-sidebar">
+                <div class="pos-sidebar-branding">
+                    <div class="nav-branding">
+                        <span class="logo">🍹</span>
+                        <div>
+                            <h2>MasterDrinks POS</h2>
+                            <span class="instancia-badge hide"></span>
+                            <span id="pos-barra-name" class="hide"></span>
+                        </div>
+                    </div>
+                    <button type="button" id="close-sidebar-btn" class="sidebar-close-btn" title="Ocultar menú"
+                        aria-label="Ocultar menú">✕</button>
+                </div>
+
+                <div class="turno-dato">
+                    <span class="turno-cifra" id="turno-total">0.00</span>
+                    <span class="turno-unidad">Bs. cobrados</span>
+                </div>
+                <div class="turno-dato">
+                    <span class="turno-cifra" id="turno-comandas">0</span>
+                    <span class="turno-unidad">comandas</span>
+                </div>
+                <p class="turno-nota">Desde que abriste la caja en esta tablet.</p>
+
+                <!-- Mercancía -->
+                <div class="sidebar-reservado">
+                    <p class="sidebar-title">Mercancía</p>
+                    <button type="button" id="agregar-stock-btn" class="secondary-btn full-btn herramienta-btn">
+                        <span aria-hidden="true">📥</span> Agregar stock
+                    </button>
+                    <button type="button" id="mover-stock-btn" class="secondary-btn full-btn herramienta-btn">
+                        <span aria-hidden="true">📤</span> Transferir stock
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Center Panel: Products Grid -->
+            <main class="pos-main">
+                <div class="pos-top-bar">
+                    <div style="display: inline-flex; align-items: center; gap: 8px;">
+                        <button type="button" id="pos-fullscreen-btn" class="pos-fs-btn" title="Pantalla Completa">⛶</button>
+                        <h1 class="pos-event-heading" id="pos-event-title">Chivas</h1>
+                    </div>
+                    <div style="display: inline-flex; align-items: center; gap: 8px;">
+                        <button type="button" id="pos-mobile-cart-btn" class="pos-mobile-cart-btn mobile-only" title="Ver Carrito">🛒 <span id="pos-mobile-cart-badge">0</span></button>
+                        <div class="pos-user-chip" id="pos-user-chip">
+                            <span class="user-chip-icon">👤</span>
+                            <span id="pos-user-chip-name">Andrés Rodríguez</span>
+                            <span id="pos-cajero-label" class="hide"></span>
+                            <span id="pos-mesero-label" class="hide"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pos-main-header">
+                    <button type="button" id="toggle-sidebar-btn" class="icon-btn sidebar-toggle-btn hide"
+                        title="Mostrar/Ocultar menú lateral" aria-label="Menú lateral">
+                        <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div id="category-list" class="category-menu" role="tablist" aria-label="Categorías de producto">
+                        <!-- Categories added dynamically -->
+                    </div>
+                    <input type="search" id="product-search" class="hide" placeholder="Buscar producto...">
+                    <button type="button" id="search-clear-btn" class="hide" aria-label="Limpiar búsqueda"></button>
+                </div>
+                <div id="product-grid" class="product-grid">
+                    <!-- Products rendered dynamically -->
+                </div>
+
+                <!-- Floating Cart Bar for Mobile Devices -->
+                <div id="pos-mobile-floating-cart" class="pos-mobile-floating-cart hide">
+                    <div class="mfc-content">
+                        <span class="mfc-icon">🛒</span>
+                        <div class="mfc-text">
+                            <span class="mfc-qty"><b id="mfc-count">0</b> items</span>
+                            <span class="mfc-total" id="mfc-total">0.00 Bs.</span>
+                        </div>
+                    </div>
+                    <button type="button" id="mfc-open-btn" class="mfc-btn">Ver Pedido →</button>
+                </div>
+            </main>
+
+            <!-- Right Panel: Shopping Cart -->
+            <aside class="pos-cart" id="pos-cart-sidebar">
+                <div class="cart-top-bar">
+                    <button type="button" id="close-mobile-cart-btn" class="cart-circle-btn mobile-close-cart-btn mobile-only-inline" title="Volver al catálogo" aria-label="Volver">✕</button>
+                    <button type="button" id="clear-cart" class="cart-circle-btn" title="Vaciar carrito"
+                        aria-label="Vaciar carrito">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+                        </svg>
+                    </button>
+                    <h2 class="cart-heading-title">Órdenes <span id="cart-count" class="cart-count-badge hide">0</span>
+                    </h2>
+                    <button type="button" id="lock-pos-btn" class="cart-circle-btn" title="Cambiar mesero / Salir"
+                        aria-label="Cambiar mesero / Salir">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div id="cart-items" class="cart-items-container">
+                    <!-- Cart items rendered dynamically -->
+                    <div class="empty-cart-msg">
+                        <span class="empty-bag-emoji">🛍️</span>
+                        <p>Tu carrito está vacío</p>
+                    </div>
+                </div>
+
+                <!-- Notes (Collapsible or clean) -->
+                <div class="cart-notes">
+                    <textarea id="cart-observations" placeholder="Observaciones del pedido (opcional)..."></textarea>
+                </div>
+
+                <!-- Wavy divider line -->
+                <div class="cart-wavy-divider" aria-hidden="true"></div>
+
+                <!-- Order Totals -->
+                <div class="cart-totals-section">
+                    <div class="cart-total-row">
+                        <span class="total-word">Total</span>
+                        <strong class="total-number" id="cart-total-amount">0.00 Bs.</strong>
+                    </div>
+                </div>
+
+                <!-- Confirm / Checkout Button -->
+                <button id="finalize-order-btn" class="confirm-order-pill-btn" disabled>Confirmar</button>
+            </aside>
+        </div>
+    </div>
+
+    <!-- 4. ADMIN CONTROL PORTAL -->
+    <div id="admin-view" class="portal-container hide">
+        <div class="admin-layout">
+            <!-- Sidebar -->
+            <aside class="admin-sidebar">
+                <div class="admin-branding">
+                    <span class="logo">⚡</span>
+                    <div>
+                        <h2>Panel Admin</h2>
+                        <span id="admin-role-badge" class="admin-role-badge">ADMINISTRADOR</span>
+                        <span class="instancia-badge hide"></span>
+                    </div>
+                </div>
+                <!-- Cerrar sesión, arriba y junto al nombre de quien está
+                     dentro. Abajo obligaba a desplazar el menú entero para
+                     encontrarlo, y es de las cosas que se buscan con prisa. -->
+                <div class="admin-user-info">
+                    <span class="user-name" id="admin-user-name">Administrador Principal</span>
+                    <div style="display: inline-flex; gap: 6px; align-items: center;">
+                        <button type="button" id="admin-fullscreen-btn" class="admin-fs-btn"
+                            title="Pantalla Completa">⛶</button>
+                        <button id="admin-logout-btn" class="admin-salir" title="Cerrar sesión">Salir</button>
+                    </div>
+                </div>
+                <nav class="admin-nav">
+                    <button class="nav-tab-btn active" data-tab="tab-dashboard"><span class="nav-icono">📊</span><span
+                            class="nav-texto">Dashboard</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-comandas"><span class="nav-icono">📝</span><span
+                            class="nav-texto">Comandas / Anulaciones</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-crear-producto"><span class="nav-icono">🛍️</span><span
+                            class="nav-texto">Productos &amp; Categorías</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-promociones"><span class="nav-icono">🏷️</span><span
+                            class="nav-texto">Promociones</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-crear-personal"><span class="nav-icono">👥</span><span
+                            class="nav-texto">Personal</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-stock"><span class="nav-icono">📦</span><span
+                            class="nav-texto">Inventario</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-inventario"><span class="nav-icono">📋</span><span
+                            class="nav-texto">Reporte de Stock</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-reimpresiones"><span class="nav-icono">🖨️</span><span
+                            class="nav-texto">Reimpresiones</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-auditoria"><span class="nav-icono">🔍</span><span
+                            class="nav-texto">Logs &amp; Auditoría</span></button>
+                    <button class="nav-tab-btn" data-tab="tab-configuracion"><span class="nav-icono">⚙️</span><span
+                            class="nav-texto">Configuración</span></button>
+                </nav>
+                <div class="sidebar-footer"></div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="admin-main">
+                <!-- Tab: Dashboard -->
+                <section id="tab-dashboard" class="tab-content">
+                    <h1 class="page-title">📊 Resumen del Evento</h1>
+                    <div class="kpi-grid">
+                        <div class="kpi-card kpi-sales">
+                            <div class="kpi-header">
+                                <h3>Ventas Totales</h3>
+                                <span class="kpi-badge-icon">💰</span>
+                            </div>
+                            <strong id="kpi-total-sales">0.00 Bs.</strong>
+                            <p class="desc">Recaudado acumulado</p>
+                        </div>
+                        <div class="kpi-card kpi-orders">
+                            <div class="kpi-header">
+                                <h3>Comandas Totales</h3>
+                                <span class="kpi-badge-icon">🧾</span>
+                            </div>
+                            <strong id="kpi-total-orders">0</strong>
+                            <p class="desc">Pedidos con cobro</p>
+                        </div>
+                        <div class="kpi-card kpi-cortesias">
+                            <div class="kpi-header">
+                                <h3>Cortesías</h3>
+                                <span class="kpi-badge-icon">👑</span>
+                            </div>
+                            <strong id="kpi-total-cortesias">0.00 Bs.</strong>
+                            <p class="desc" id="kpi-desc-cortesias">0 pedidos valorizados</p>
+                        </div>
+                        <div class="kpi-card kpi-voids danger">
+                            <div class="kpi-header">
+                                <h3>Comandas Anuladas</h3>
+                                <span class="kpi-badge-icon">⚠️</span>
+                            </div>
+                            <strong id="kpi-voided-orders">0</strong>
+                            <p class="desc">Cancelaciones supervisadas</p>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-details">
+                        <div class="glass-card dashboard-chart-card">
+                            <h2>🧑‍💼 Ventas por Cajero</h2>
+                            <div id="cajeros-sales-chart" class="sales-bar-list">
+                                <!-- Rendered dynamically -->
+                            </div>
+                        </div>
+                        <div class="glass-card dashboard-chart-card">
+                            <h2>💳 Métodos de Pago</h2>
+                            <div id="metodos-sales-chart" class="sales-bar-list">
+                                <!-- Rendered dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detalle de Cortesías entregadas -->
+                    <div class="glass-card dashboard-chart-card cortesias-dashboard-card" style="margin-bottom: 14px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <h2 style="margin:0;">👑 Detalle de Cortesías</h2>
+                            <span id="cortesias-dashboard-count"
+                                style="font-size:0.8rem; font-weight:800; background:#fef3c7; color:#92400e; border:1.5px solid #000; border-radius:12px; padding:2px 10px;">0
+                                registradas</span>
+                        </div>
+                        <p class="reporte-hint" style="margin-bottom: 10px;">Comandas entregadas en cortesía (sin cobro
+                            en caja), con mesero, desglose de productos y valor de referencia.</p>
+                        <div id="cortesias-dashboard-list" class="sales-bar-list" style="margin-top:0; gap:8px;">
+                            <!-- Rendered dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Reporte de cierre en PDF.
+                         El PDF lo arma el servidor leyendo la base, no esta
+                         pantalla: así las cifras del reporte y las de la base
+                         no pueden discrepar. -->
+                    <div class="glass-card reporte-card">
+                        <h2>📄 Reporte de cierre en PDF</h2>
+                        <p class="reporte-hint">
+                            Recaudación por forma de pago, por barra, por cajero y por mesero,
+                            productos vendidos, anulaciones y existencias al cierre. Se descarga
+                            como archivo, listo para mandar por WhatsApp.
+                        </p>
+
+                        <div class="reporte-rango">
+                            <div class="form-group">
+                                <label for="rep-desde">Desde</label>
+                                <input type="date" id="rep-desde">
+                            </div>
+                            <div class="form-group">
+                                <label for="rep-hasta">Hasta</label>
+                                <input type="date" id="rep-hasta">
+                            </div>
+                            <button type="button" id="rep-hoy-btn" class="secondary-btn">Hoy</button>
+                        </div>
+
+                        <div id="rep-preview" class="reporte-preview hide"></div>
+
+                        <div class="reporte-acciones">
+                            <button type="button" id="rep-ver-btn" class="secondary-btn">Ver resumen</button>
+                            <button type="button" id="rep-pdf-btn" class="primary-btn">⬇️ Descargar PDF</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab: Comandas -->
+                <section id="tab-comandas" class="tab-content hide">
+                    <div class="comandas-top-header">
+                        <h1 class="page-title">Comandas</h1>
+                        <div class="comandas-summary-pills">
+                            <button type="button" class="comanda-pill-badge active" data-estado="todos"
+                                id="chip-todas"><b>0</b> Todas</button>
+                            <button type="button" class="comanda-pill-badge pill-completadas" data-estado="completadas"
+                                id="chip-completadas"><b>0</b> Completadas</button>
+                            <button type="button" class="comanda-pill-badge pill-anuladas" data-estado="anuladas"
+                                id="chip-anuladas"><b>0</b> Anuladas</button>
+                        </div>
+                    </div>
+
+                    <!-- Search Filter & Quick Actions -->
+                    <div class="comandas-filter-bar">
+                        <div class="comandas-filter-controls">
+                            <!-- Buscador SOLO por número de comanda -->
+                            <div class="comanda-search-wrapper" title="Buscar únicamente por número de comanda">
+                                <span class="comanda-search-num-icon">#</span>
+                                <input type="text" id="comanda-search-input" inputmode="numeric"
+                                    placeholder="N° comanda (ej. 1, 14)...">
+                            </div>
+
+                            <!-- Filtro por Mesero -->
+                            <div class="comanda-filter-item">
+                                <select id="comanda-filter-mesero" class="comanda-select-filter"
+                                    title="Filtrar por mesero">
+                                    <option value="">Todos los meseros</option>
+                                </select>
+                            </div>
+
+                            <!-- Filtro por Método de Pago -->
+                            <div class="comanda-filter-item">
+                                <select id="comanda-filter-pago" class="comanda-select-filter"
+                                    title="Filtrar por método de pago">
+                                    <option value="">Todos los pagos</option>
+                                    <option value="efectivo">💵 Efectivo</option>
+                                    <option value="qr">📱 QR</option>
+                                    <option value="tarjeta">💳 Tarjeta</option>
+                                    <option value="transfer">🏦 Transferencia</option>
+                                    <option value="mixto">🔀 Múltiple</option>
+                                </select>
+                            </div>
+
+                            <!-- Rango de Fechas -->
+                            <div class="comanda-filter-dates">
+                                <div class="comanda-date-field">
+                                    <label for="comanda-filter-desde">Desde</label>
+                                    <input type="date" id="comanda-filter-desde" class="comanda-date-input"
+                                        title="Fecha inicial">
+                                </div>
+                                <div class="comanda-date-field">
+                                    <label for="comanda-filter-hasta">Hasta</label>
+                                    <input type="date" id="comanda-filter-hasta" class="comanda-date-input"
+                                        title="Fecha final">
+                                </div>
+                            </div>
+
+                            <!-- Botón Limpiar filtros -->
+                            <button type="button" id="comanda-btn-limpiar" class="comanda-btn-clear hide"
+                                title="Limpiar todos los filtros">
+                                ✕ Limpiar
+                            </button>
+                        </div>
+
+                        <div class="comandas-quick-actions">
+                            <button type="button" id="comandas-quick-pdf" class="pill-action-btn btn-pdf"
+                                title="Descargar Reporte de Comandas en PDF">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                </svg>
+                                <span>PDF</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="comandas-cards-container" class="comandas-cards-grid">
+                        <!-- Miniature ticket cards rendered dynamically -->
+                    </div>
+                    <div id="comandas-pagination" class="comandas-pagination-bar"></div>
+                </section>
+
+                <!-- Tab: Crear Producto & Categoría -->
+                <section id="tab-crear-producto" class="tab-content hide">
+                    <h1 class="page-title">Gestión de Catálogo</h1>
+
+                    <div class="catalogo-grid-2x2">
+                        <!-- Fila 1, Columna 1: Formulario Nueva Categoría -->
+                        <div class="glass-card form-card">
+                            <h2>Nueva Categoría</h2>
+                            <form id="form-create-category">
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="cat-name">Nombre de Categoría</label>
+                                        <input type="text" id="cat-name" placeholder="Ej. Licores" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="cat-type">Tipo Global</label>
+                                        <select id="cat-type">
+                                            <option value="BEBIDA">Bebida</option>
+                                            <option value="COMIDA">Comida</option>
+                                            <option value="OTRO">Otro</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cat-desc">Descripción</label>
+                                    <input type="text" id="cat-desc" placeholder="Ej. Medidas y botellas de destilados">
+                                </div>
+                            </form>
+                            <button type="submit" form="form-create-category" class="primary-btn prod-submit-btn">Crear
+                                Categoría</button>
+                        </div>
+
+
+                        <!-- Fila 1, Columna 2: Lista de Categorías Existentes -->
+                        <div class="glass-card lista-card">
+                            <div class="lista-cabecera">
+                                <h2>Categorías</h2>
+                                <span id="cont-categorias" class="lista-cuenta">0</span>
+                            </div>
+                            <div id="lista-categorias" class="lista"></div>
+                        </div>
+
+                        <!-- Fila 2, Columna 1: Formulario Nuevo Producto (Debajo de Nueva Categoría) -->
+                        <div class="glass-card form-card">
+                            <h2>Nuevo Producto</h2>
+                            <form id="form-create-product">
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="prod-cat">Categoría</label>
+                                        <select id="prod-cat" required>
+                                            <!-- Populated dynamically -->
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="prod-type">Tipo de Producto</label>
+                                        <select id="prod-type">
+                                            <option value="BEBIDA_ALCOHOLICA">Bebida Alcohólica</option>
+                                            <option value="BEBIDA_NO_ALCOHOLICA">Bebida No Alcohólica</option>
+                                            <option value="COMIDA">Comida</option>
+                                            <option value="OTRO">Otro</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="prod-name">Nombre del Producto</label>
+                                        <input type="text" id="prod-name" placeholder="Ej. Ron Flor de Caña 7 Años"
+                                            required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="prod-desc">Descripción</label>
+                                        <input type="text" id="prod-desc"
+                                            placeholder="Ej. Medida de 50 ml con mezclador">
+                                    </div>
+                                </div>
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="prod-price">Precio de Venta (Bs.)</label>
+                                        <input type="number" id="prod-price" min="0" step="0.5" placeholder="0.00"
+                                            required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="prod-stock">Stock Inicial</label>
+                                        <input type="number" id="prod-stock" min="0" placeholder="100" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="prod-botella-vinculada">Botella de la que descuenta <span class="etiqueta-opcional">(Para Vasos / Shots)</span></label>
+                                        <select id="prod-botella-vinculada">
+                                            <option value="">Ninguna (Producto independiente)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" id="prod-grupo-vasos" style="display: none;">
+                                        <label for="prod-vasos-por-botella">Rendimiento <span class="etiqueta-opcional">(Vasos por botella)</span></label>
+                                        <input type="number" id="prod-vasos-por-botella" min="1" max="100" value="10" placeholder="10">
+                                    </div>
+                                </div>
+
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label>Acompañamiento</label>
+                                        <label class="casilla" for="prod-requiere">
+                                            <input type="checkbox" id="prod-requiere">
+                                            <span class="casilla-texto">
+                                                <strong>Con acompañante</strong>
+                                                <small>Se pedirá elegir cuál al cobrar.</small>
+                                            </span>
+                                        </label>
+                                        <label class="casilla" for="prod-es-acomp">
+                                            <input type="checkbox" id="prod-es-acomp">
+                                            <span class="casilla-texto">
+                                                <strong>Es acompañante</strong>
+                                                <small>Aparece como opción elegible.</small>
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Foto del producto <span class="etiqueta-opcional">opcional</span></label>
+                                        <div class="foto-campo">
+                                            <div id="prod-foto-vista" class="foto-vista" aria-hidden="true">
+                                                <span class="foto-vacia">Sin foto</span>
+                                            </div>
+                                            <div class="foto-acciones">
+                                                <label for="prod-foto" class="secondary-btn foto-elegir">Elegir
+                                                    imagen</label>
+                                                <input type="file" id="prod-foto" class="foto-input"
+                                                    accept="image/png,image/jpeg,image/webp">
+                                                <button type="button" id="prod-foto-quitar"
+                                                    class="text-btn hide">Quitar</button>
+                                                <p class="campo-nota">Se guarda reducida.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </form>
+                            <!-- Botón fuera del form para que nunca quede cortado por overflow -->
+                            <button type="submit" form="form-create-product" class="primary-btn prod-submit-btn">Crear
+                                Producto</button>
+                        </div>
+
+
+                        <!-- Fila 2, Columna 2: Lista de Productos (Debajo de Categorías) -->
+                        <div class="glass-card lista-card">
+                            <div class="lista-cabecera">
+                                <h2>Productos</h2>
+                                <span id="cont-productos" class="lista-cuenta">0</span>
+                                <input type="search" id="buscar-producto-cat" class="lista-buscador"
+                                    placeholder="Buscar producto">
+                            </div>
+                            <div id="lista-productos" class="lista"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab: Promociones -->
+                <section id="tab-promociones" class="tab-content hide">
+                    <h1 class="page-title">Promociones</h1>
+                    <div class="admin-grid-forms">
+                        <div class="glass-card form-card">
+                            <h2 id="promo-titulo-form">Nueva promoción</h2>
+                            <p class="form-pista">
+                                Un paquete de productos a un precio cerrado. Al venderlo salen de la
+                                nevera los productos que lleva dentro, uno por uno.
+                            </p>
+
+                            <div class="form-scrollable-body">
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="promo-nombre">Nombre de la promoción</label>
+                                        <input type="text" id="promo-nombre" placeholder="Ej. Promoción Amigos"
+                                            required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="promo-desc">Descripción</label>
+                                        <input type="text" id="promo-desc" placeholder="Ej. Para compartir entre tres">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Qué lleva dentro</label>
+                                    <div class="promo-anadir">
+                                        <select id="promo-producto"></select>
+                                        <input type="number" id="promo-cantidad" min="1" max="99" value="1"
+                                            aria-label="Cuántas unidades">
+                                        <button type="button" id="promo-anadir" class="secondary-btn">Añadir</button>
+                                    </div>
+                                    <div id="promo-contenido" class="promo-contenido"></div>
+                                </div>
+
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="promo-precio">Precio del paquete (Bs.)</label>
+                                        <input type="number" id="promo-precio" min="0" step="0.5" placeholder="0.00">
+                                        <p id="promo-cuentas" class="promo-cuentas"></p>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Foto de la promoción <span
+                                                class="etiqueta-opcional">opcional</span></label>
+                                        <div class="foto-campo">
+                                            <div id="promo-foto-vista" class="foto-vista" aria-hidden="true">
+                                                <span class="foto-vacia">Sin foto</span>
+                                            </div>
+                                            <div class="foto-acciones">
+                                                <label for="promo-foto" class="secondary-btn foto-elegir">Elegir
+                                                    imagen</label>
+                                                <input type="file" id="promo-foto" class="foto-input"
+                                                    accept="image/png,image/jpeg,image/webp">
+                                                <button type="button" id="promo-foto-quitar"
+                                                    class="text-btn hide">Quitar</button>
+                                                <p class="campo-nota">Se guarda en la base.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="promo-acciones">
+                                <button type="button" id="promo-guardar" class="primary-btn">Crear promoción</button>
+                                <button type="button" id="promo-cancelar" class="secondary-btn hide">Cancelar</button>
+                            </div>
+                        </div>
+
+                        <div class="glass-card lista-card">
+                            <div class="lista-cabecera">
+                                <h2>Promociones</h2>
+                                <span id="cont-promociones" class="lista-cuenta">0</span>
+                            </div>
+                            <div id="lista-promociones" class="lista"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab: Crear Personal -->
+                <section id="tab-crear-personal" class="tab-content hide">
+                    <h1 class="page-title">Personal de la barra</h1>
+                    <div class="personal-grid-2x2">
+                        <!-- Fila 1, Columna 1: Formulario Nuevo Cajero -->
+                        <div class="glass-card form-card">
+                            <h2>Nuevo Cajero</h2>
+                            <form id="form-create-cajero">
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="caj-name">Nombre Completo</label>
+                                        <input type="text" id="caj-name" placeholder="Ej. Sofía Méndez" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="caj-barra">Barra</label>
+                                        <input type="text" id="caj-barra" class="campo-fijo" readonly tabindex="-1"
+                                            value="—">
+                                    </div>
+                                </div>
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="caj-user">Usuario de Acceso</label>
+                                        <input type="text" id="caj-user" placeholder="Ej. cajero_vip_1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="caj-pass">Contraseña</label>
+                                        <input type="password" id="caj-pass" placeholder="••••••••" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="primary-btn">Registrar Cajero</button>
+                            </form>
+                        </div>
+
+                        <!-- Fila 1, Columna 2: Lista Cajeros (Al lado de Registrar Cajero) -->
+                        <div class="glass-card lista-card">
+                            <div class="lista-cabecera">
+                                <h2>Cajeros</h2>
+                                <span id="cont-cajeros" class="lista-cuenta">0</span>
+                                <input type="search" id="buscar-cajero" class="lista-buscador"
+                                    placeholder="Buscar por nombre o usuario">
+                            </div>
+                            <div id="lista-cajeros" class="lista"></div>
+                        </div>
+
+                        <!-- Fila 2, Columna 1: Formulario Nuevo Mesero -->
+                        <div class="glass-card form-card">
+                            <h2>Nuevo Mesero</h2>
+                            <form id="form-create-mesero">
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="mes-name">Nombre Completo</label>
+                                        <input type="text" id="mes-name" placeholder="Ej. Daniel Rojas" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="mes-cajero">Cajero a Rendir Cuentas</label>
+                                        <select id="mes-cajero" required>
+                                            <!-- Populated dynamically -->
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="mes-user">Usuario de Acceso</label>
+                                        <input type="text" id="mes-user" placeholder="Ej. mesero_vip_1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="mes-pass">Contraseña (PIN)</label>
+                                        <input type="password" id="mes-pass" placeholder="Ej. 1234" required>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-top: 2px;">
+                                    <label
+                                        style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size: 0.78rem; font-weight: 700; color: #d97706;">
+                                        <input type="checkbox" id="mes-cortesia"
+                                            style="width: 16px; height: 16px; min-height: 16px; accent-color: #d97706; margin: 0; cursor: pointer;">
+                                        <span>👑 Mesero de Cortesías (No cobra / 0 Bs. en reportes)</span>
+                                    </label>
+                                </div>
+                                <button type="submit" class="primary-btn">Registrar Mesero</button>
+                            </form>
+                        </div>
+
+                        <!-- Fila 2, Columna 2: Lista Meseros (Al lado de Registrar Mesero) -->
+                        <div class="glass-card lista-card">
+                            <div class="lista-cabecera">
+                                <h2>Meseros</h2>
+                                <span id="cont-meseros" class="lista-cuenta">0</span>
+                                <input type="search" id="buscar-mesero" class="lista-buscador"
+                                    placeholder="Buscar por nombre o PIN">
+                            </div>
+                            <div id="lista-meseros" class="lista"></div>
+                        </div>
+
+                        <!-- Fila 3, Columna 1: Formulario Nuevo Encargado -->
+                        <div class="glass-card form-card">
+                            <h2>Nuevo Encargado</h2>
+                            <form id="form-create-encargado">
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="enc-name">Nombre Completo</label>
+                                        <input type="text" id="enc-name" placeholder="Ej. Carlos Ramos" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="enc-rol">Módulo Asignado</label>
+                                        <input type="text" id="enc-rol" class="campo-fijo" readonly tabindex="-1"
+                                            value="Inventario">
+                                    </div>
+                                </div>
+                                <div class="form-row-2col">
+                                    <div class="form-group">
+                                        <label for="enc-user">Usuario de Acceso</label>
+                                        <input type="text" id="enc-user" placeholder="Ej. encargado_1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="enc-pass">Contraseña</label>
+                                        <input type="password" id="enc-pass" placeholder="••••••••" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="primary-btn">Registrar Encargado</button>
+                            </form>
+                        </div>
+
+                        <!-- Fila 3, Columna 2: Lista Encargados (Al lado de Registrar Encargado) -->
+                        <div class="glass-card lista-card">
+                            <div class="lista-cabecera">
+                                <h2>Encargados</h2>
+                                <span id="cont-encargados" class="lista-cuenta">0</span>
+                                <input type="search" id="buscar-encargado" class="lista-buscador"
+                                    placeholder="Buscar por nombre o usuario">
+                            </div>
+                            <div id="lista-encargados" class="lista"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab: Stock Cards & Inventory Management -->
+                <section id="tab-stock" class="tab-content hide">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
+                        <div>
+                            <h1 class="page-title" style="margin-bottom: 4px;">Control de Stock</h1>
+                            <p id="admin-stock-summary-text" class="reporte-hint" style="margin: 0;">
+                                Cargando catálogo de productos...
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" id="toggle-albaran-btn" class="secondary-btn">
+                                📥 Ingreso por Albarán / Lote
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Toolbar -->
+                    <div class="admin-stock-toolbar">
+                        <div class="admin-stock-search-wrap">
+                            <input type="text" id="admin-stock-search" placeholder="🔍 Buscar producto por nombre...">
+                        </div>
+                    </div>
+
+                    <!-- Category Pills -->
+                    <div id="admin-stock-category-pills" class="category-menu" style="margin-bottom: 18px;">
+                        <!-- Dynamically populated -->
+                    </div>
+
+                    <!-- Cards Grid -->
+                    <div id="admin-stock-cards-grid" class="admin-stock-grid">
+                        <!-- Rendered dynamically -->
+                    </div>
+                    <div id="admin-stock-pagination" class="comandas-pagination-bar"
+                        style="margin-top: 14px; margin-bottom: 12px;"></div>
+
+                    <!-- Collapsible Albarán Section -->
+                    <div id="albaran-collapsible-section" class="hide" style="margin-top: 24px;">
+                        <!-- Ingreso de mercancía por lote / albarán -->
+                        <div class="glass-card form-card" style="margin-bottom: 20px;">
+                            <h2>📥 Ingreso múltiple de mercancía (Albarán)</h2>
+                            <p class="reporte-hint">
+                                Suma stock a esta barra cargando varios productos en un solo documento.
+                            </p>
+
+                            <div class="form-group">
+                                <label for="ingreso-origen" id="ingreso-origen-label">Proveedor</label>
+                                <input type="text" id="ingreso-origen" maxlength="120"
+                                    placeholder="Ej. Distribuidora Central">
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="ingreso-producto">Producto</label>
+                                    <select id="ingreso-producto"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ingreso-unidades">Unidades</label>
+                                    <input type="number" id="ingreso-unidades" min="1" placeholder="24">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="ingreso-nota">Nota</label>
+                                <input type="text" id="ingreso-nota" maxlength="250"
+                                    placeholder="Opcional: nº de factura, quién lo trajo...">
+                            </div>
+
+                            <div id="ingreso-lista" class="mover-lista"></div>
+                            <p class="acciones-pista">
+                                Puedes cargar varios productos del mismo albarán: añádelos uno a uno y guarda al final.
+                            </p>
+                            <div class="acciones-fila">
+                                <button type="button" id="ingreso-otro" class="secondary-btn">
+                                    ＋ Añadir a la lista
+                                </button>
+                                <button type="button" id="ingreso-guardar" class="primary-btn">
+                                    Guardar ingreso
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Historial de compras e ingresos -->
+                        <div class="glass-card lista-card">
+                            <div class="lista-cabecera">
+                                <h2>Historial de compras</h2>
+                                <span id="cont-traspasos" class="lista-cuenta">0</span>
+                            </div>
+                            <div id="lista-traspasos" class="lista"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab: Auditoría -->
+                <!-- Reimpresiones: quién sacó copias de qué comanda.
+                     Reimprimir es la puerta de atrás de la barra, porque con el
+                     ticket en la mano se puede cobrar dos veces la misma venta.
+                     Por eso salen los dos responsables y no sólo el cajero. -->
+                <section id="tab-reimpresiones" class="tab-content hide">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h1 class="page-title" style="margin: 0 0 2px 0;">Reimpresiones</h1>
+                            <p id="reimpresiones-summary-count" class="reporte-hint" style="margin: 0;">
+                                Copias sacadas después del ticket original
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Barra de Filtros -->
+                    <div class="glass-card reimpresiones-filters-card" style="padding: 8px 14px; margin-bottom: 8px;">
+                        <div class="inv-filters-toolbar">
+                            <!-- Buscador -->
+                            <div class="inv-filter-item inv-filter-search">
+                                <label for="reimpresiones-search">Buscar comanda</label>
+                                <input type="text" id="reimpresiones-search"
+                                    placeholder="🔍 #Comanda, cajero, mesero...">
+                            </div>
+
+                            <!-- Filtro Cajero -->
+                            <div class="inv-filter-item">
+                                <label for="reimpresiones-filter-cajero">Cajero</label>
+                                <select id="reimpresiones-filter-cajero">
+                                    <option value="all">Todos los cajeros</option>
+                                </select>
+                            </div>
+
+                            <!-- Filtro N° Copia -->
+                            <div class="inv-filter-item">
+                                <label for="reimpresiones-filter-copia">N° Copia</label>
+                                <select id="reimpresiones-filter-copia">
+                                    <option value="all">Todas las copias</option>
+                                    <option value="1">1ª copia</option>
+                                    <option value="multi">2ª o más copias (⚠️)</option>
+                                </select>
+                            </div>
+
+                            <!-- Ordenar por -->
+                            <div class="inv-filter-item">
+                                <label for="reimpresiones-filter-sort">Ordenar por</label>
+                                <select id="reimpresiones-filter-sort">
+                                    <option value="fecha_desc">Más recientes primero</option>
+                                    <option value="fecha_asc">Más antiguas primero</option>
+                                    <option value="total_desc">Mayor importe</option>
+                                    <option value="total_asc">Menor importe</option>
+                                    <option value="comanda_desc"># Comanda mayor</option>
+                                    <option value="comanda_asc"># Comanda menor</option>
+                                </select>
+                            </div>
+
+                            <!-- Botón Limpiar -->
+                            <div class="inv-filter-item inv-filter-actions">
+                                <button type="button" id="reimpresiones-clear-btn" class="secondary-btn"
+                                    title="Restablecer filtros">
+                                    ✕ Limpiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Reimpresiones con tarjeta y paginación -->
+                    <div class="glass-card table-section reimpresiones-table-section">
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Comanda</th>
+                                        <th>Reimpresión</th>
+                                        <th>Cajero</th>
+                                        <th>Mesero</th>
+                                        <th>Importe</th>
+                                        <th>Fecha / Hora</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reimpresiones-table-body">
+                                    <!-- Content -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Paginación -->
+                        <div id="reimpresiones-pagination" class="comandas-pagination-bar"
+                            style="margin-top: 8px; margin-bottom: 0;"></div>
+                    </div>
+                </section>
+
+                <section id="tab-auditoria" class="tab-content hide">
+                    <h1 class="page-title">Registros del Evento</h1>
+                    <div class="admin-grid-forms">
+                        <div class="glass-card table-section">
+                            <h2>Movimientos de Stock</h2>
+                            <div class="table-container max-h-96">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Tipo</th>
+                                            <th>Cantidad</th>
+                                            <th>Previo</th>
+                                            <th>Nuevo</th>
+                                            <th>Mesero / Resp.</th>
+                                            <th>Fecha/Hora</th>
+                                            <th>Motivo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="movs-table-body">
+                                        <!-- Content -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="glass-card table-section">
+                            <h2>Auditoría de Administradores</h2>
+                            <div class="table-container max-h-96">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Admin</th>
+                                            <th>Acción</th>
+                                            <th>Detalle</th>
+                                            <th>Fecha/Hora</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="audits-table-body">
+                                        <!-- Content -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab: Inventario General -->
+                <section id="tab-inventario" class="tab-content hide">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h1 class="page-title" style="margin: 0 0 2px 0;">Reporte de Stock de Productos</h1>
+                            <p id="inv-summary-count" class="reporte-hint" style="margin: 0;">Cargando inventario...</p>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button id="print-inventory-btn" class="primary-btn">🖨️ Imprimir (RawBT)</button>
+                            <button id="print-inventory-browser-btn" class="secondary-btn">Por navegador</button>
+                        </div>
+                    </div>
+
+                    <!-- Barra de Filtros (Desde - Hasta, Categoría, Estado, Búsqueda) -->
+                    <div class="glass-card" style="padding: 8px 14px; margin-bottom: 8px;">
+                        <div class="inv-filters-toolbar">
+                            <!-- Buscador -->
+                            <div class="inv-filter-item inv-filter-search">
+                                <label for="inv-search">Buscar producto</label>
+                                <input type="text" id="inv-search" placeholder="🔍 Nombre o #ID...">
+                            </div>
+
+                            <!-- Categoría -->
+                            <div class="inv-filter-item">
+                                <label for="inv-filter-cat">Categoría</label>
+                                <select id="inv-filter-cat">
+                                    <option value="all">Todas las categorías</option>
+                                </select>
+                            </div>
+
+                            <!-- Estado de Stock -->
+                            <div class="inv-filter-item">
+                                <label for="inv-filter-status">Estado</label>
+                                <select id="inv-filter-status">
+                                    <option value="all">Todos los estados</option>
+                                    <option value="out">⚠️ Agotados (0 uds)</option>
+                                    <option value="low">🟡 Stock Bajo (≤ 15)</option>
+                                    <option value="ok">🟢 Con Stock (> 0)</option>
+                                </select>
+                            </div>
+
+                            <!-- Ordenar por -->
+                            <div class="inv-filter-item">
+                                <label for="inv-filter-sort">Ordenar por</label>
+                                <select id="inv-filter-sort">
+                                    <option value="id_asc">ID (# menor primero)</option>
+                                    <option value="id_desc">ID (# mayor primero)</option>
+                                    <option value="nombre_asc">Nombre (A → Z)</option>
+                                    <option value="stock_asc">Menor stock primero</option>
+                                    <option value="stock_desc">Mayor stock primero</option>
+                                </select>
+                            </div>
+
+                            <!-- Botón Limpiar -->
+                            <div class="inv-filter-item inv-filter-actions">
+                                <button type="button" id="inv-clear-filters-btn" class="secondary-btn"
+                                    title="Restablecer filtros">
+                                    ✕ Limpiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Inventario con borde de tarjeta Neo-Brutalist -->
+                    <div class="glass-card table-section">
+                        <div class="table-container inv-table-container">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Categoría</th>
+                                        <th>Producto</th>
+                                        <th>Stock Actual</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination controls (dentro de la tarjeta de la tabla) -->
+                        <div id="inventory-pagination" class="comandas-pagination-bar"
+                            style="margin-top: 8px; margin-bottom: 0;"></div>
+                    </div>
+                </section>
+
+                <!-- Tab: Configuración -->
+                <section id="tab-configuracion" class="tab-content hide">
+                    <h1 class="page-title">Configuración del Sistema</h1>
+
+                    <!-- Datos del evento -->
+                    <div class="glass-card reporte-card">
+                        <h2>🏷️ Datos del evento</h2>
+                        <p class="reporte-hint">
+                            Lo que sale impreso en los tickets y en la cabecera del reporte de cierre. Cámbialos en cada
+                            evento.
+                        </p>
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label for="cfg-evento">Evento</label>
+                                <input type="text" id="cfg-evento" maxlength="120"
+                                    placeholder="Ej. Festival de Verano 2026">
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-fecha">Fecha</label>
+                                <input type="date" id="cfg-fecha">
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-lugar">Lugar</label>
+                                <input type="text" id="cfg-lugar" maxlength="120" placeholder="Ej. Estadio Central">
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-barra">Barra</label>
+                                <input type="text" id="cfg-barra" maxlength="120" placeholder="Ej. Barra 1">
+                                <p class="campo-nota">
+                                    Sale impreso en cada ticket, encabeza el reporte de cierre y numera las comandas.
+                                </p>
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-responsable">Responsable</label>
+                                <input type="text" id="cfg-responsable" maxlength="120"
+                                    placeholder="Ej. Adrián Frontanilla">
+                            </div>
+                        </div>
+                        <!-- Logo personalizado para tickets térmicos -->
+                        <div class="logo-ticket-card-section"
+                            style="margin-top: 18px; padding-top: 16px; border-top: 1px dashed rgba(0,0,0,0.18);">
+                            <label style="display: block; font-weight: 700; margin-bottom: 4px; font-size: 0.95rem;">
+                                🖨️ Logo del ticket térmico
+                            </label>
+                            <p class="campo-nota" style="margin-top: 0; margin-bottom: 12px;">
+                                Logotipo o marca que encabeza cada ticket impreso y la vista previa. Si no subes
+                                ninguno, se utiliza el logotipo de Euphoria por defecto.
+                            </p>
+                            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                                <div class="logo-ticket-preview-box"
+                                    style="width: 140px; height: 60px; background: #ffffff; border: 2px solid #000000; border-radius: 8px; box-shadow: 2px 2px 0px #000000; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 4px;">
+                                    <img id="logo-ticket-preview-img" src="/api/configuracion/logo"
+                                        alt="Logo de tickets"
+                                        style="max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(1) contrast(1.2);">
+                                </div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                    <input type="file" id="input-subir-logo-ticket"
+                                        accept="image/png, image/jpeg, image/webp" class="hide">
+                                    <button type="button" id="btn-subir-logo-ticket" class="secondary-btn">
+                                        📁 Cambiar logo
+                                    </button>
+                                    <button type="button" id="btn-quitar-logo-ticket" class="danger-btn hide">
+                                        🗑️ Restablecer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="reporte-acciones">
+                            <button type="button" id="cfg-guardar-btn" class="primary-btn">Guardar datos</button>
+                        </div>
+                    </div>
+
+                    <!-- Afiche / Cartel del evento -->
+                    <div class="glass-card reporte-card" id="card-afiche-evento">
+                        <div class="afiche-header-bar">
+                            <div>
+                                <h2>🖼️ Afiche del evento</h2>
+                                <p class="reporte-hint">
+                                    El cartel oficial del evento. Se muestra en la pantalla de bloqueo/PIN y define
+                                    automáticamente la paleta de colores de la interfaz.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="afiche-admin-content">
+                            <div class="afiche-preview-box">
+                                <img id="admin-afiche-preview" class="admin-afiche-img hide"
+                                    alt="Vista previa del afiche">
+                                <div id="admin-afiche-placeholder" class="admin-afiche-empty">
+                                    <span>🖼️</span>
+                                    <p>Sin afiche</p>
+                                </div>
+                            </div>
+                            <div class="afiche-details-panel">
+                                <div class="afiche-info-list" id="admin-afiche-info">
+                                    <p class="afiche-info-item"><strong>Archivo:</strong> <span
+                                            id="admin-afiche-nombre">—</span></p>
+                                    <p class="afiche-info-item"><strong>Resolución:</strong> <span
+                                            id="admin-afiche-res">—</span></p>
+                                    <p class="afiche-info-item"><strong>Tamaño:</strong> <span
+                                            id="admin-afiche-peso">—</span></p>
+                                    <p class="afiche-info-item"><strong>Estado:</strong> <span id="admin-afiche-estado"
+                                            class="tag-status">Comprobando...</span></p>
+                                </div>
+                                <div class="afiche-actions-row">
+                                    <input type="file" id="input-subir-afiche"
+                                        accept="image/png, image/jpeg, image/webp" class="hide">
+                                    <button type="button" id="btn-cambiar-afiche" class="primary-btn">
+                                        📷 Cambiar afiche
+                                    </button>
+                                    <button type="button" id="btn-quitar-afiche" class="secondary-btn hide">
+                                        🗑️ Quitar
+                                    </button>
+                                </div>
+                                <p class="campo-nota">
+                                    Acepta imágenes JPG, PNG o WEBP de alta resolución.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reconocimiento Facial (PIN 0000) -->
+                    <div class="glass-card reporte-card" id="card-rostros-admin" style="margin-top: 20px;">
+                        <div class="afiche-header-bar" style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                            <div>
+                                <h2>👤 Reconocimiento Facial para PIN 0000</h2>
+                                <p class="reporte-hint">
+                                    Registra uno o varios rostros de administradores. Al marcar el PIN 0000 en la pantalla de clave, la cámara escaneará tu rostro y te dará acceso directo a Administración sin mostrar usuarios ni contraseñas.
+                                </p>
+                            </div>
+                            <button type="button" id="btn-nuevo-rostro" class="primary-btn" style="white-space: nowrap; flex-shrink: 0;">
+                                📷 Registrar Nuevo Rostro
+                            </button>
+                        </div>
+                        <div id="lista-rostros-admin" class="rostros-grid" style="margin-top: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+                            <!-- Rostros guardados -->
+                        </div>
+                    </div>
+
+                    <!-- Impresora: se guarda en ESTA tablet, no en la base -->
+                    <div class="glass-card reporte-card">
+                        <h2>🖨️ Impresora de esta tablet</h2>
+                        <p class="reporte-hint">
+                            Estos ajustes se guardan en la tablet que estás usando, no en la base: cada una tiene los
+                            suyos.
+                        </p>
+                        <div id="print-status" class="print-status hide"></div>
+                        <div id="printer-settings" class="printer-settings">
+                            <div class="printer-settings-grid">
+                                <div class="form-group">
+                                    <label for="cfg-width">Ancho de papel</label>
+                                    <select id="cfg-width">
+                                        <option value="48" selected>80 mm (48 columnas)</option>
+                                        <option value="32">58 mm (32 columnas)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cfg-encoding">Acentos</label>
+                                    <select id="cfg-encoding">
+                                        <option value="cp850">CP850 (con acentos y ñ)</option>
+                                        <option value="ascii">Sin acentos (compatible)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cfg-mode">Forma de envío</label>
+                                    <select id="cfg-mode">
+                                        <option value="native_usb" selected>🔌 Cable USB Directo (Nativo - Sin RawBT)</option>
+                                        <option value="rawbt">🖨️ RawBT (App externa / Bluetooth)</option>
+                                        <option value="intent">📱 intent:// (Alternativo RawBT)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cfg-single">Trabajos de impresión</label>
+                                    <select id="cfg-single">
+                                        <option value="1">Los 2 tickets juntos</option>
+                                        <option value="0">Uno por ticket</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cfg-cut">Corte de papel</label>
+                                    <select id="cfg-cut">
+                                        <option value="1">Cortar al terminar</option>
+                                        <option value="0">No cortar</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cfg-preview">Vista previa al cobrar</label>
+                                    <select id="cfg-preview">
+                                        <option value="0" selected>Impresión directa (sin vista previa)</option>
+                                        <option value="1">Mostrar vista previa de tickets</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <p class="printer-hint">
+                                Para impresión directa, conecta la impresora a la tablet con un cable USB OTG y acepta el permiso en pantalla. También puedes seleccionar <strong>RawBT</strong> como respaldo o si usas conexión Bluetooth.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Conexión de Red y Modo de Tablets (Servidor / Cliente) -->
+                    <div class="glass-card reporte-card" id="card-red-tablets" style="margin-top: 20px;">
+                        <h2>📡 Modo de Tablet y Red (Servidor / Cliente)</h2>
+                        <p class="reporte-hint">
+                            Configura esta tablet como Servidor Principal (Base de datos local) o como Terminal Cliente conectada a otra tablet en la misma red Wi-Fi o Hotspot.
+                        </p>
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Modo de esta tablet</label>
+                                <div style="display: flex; gap: 10px; margin-top: 6px;">
+                                    <button type="button" id="btn-tablet-servidor" class="primary-btn" style="flex: 1;">
+                                        🖥️ Servidor (Host)
+                                    </button>
+                                    <button type="button" id="btn-tablet-cliente" class="secondary-btn" style="flex: 1;">
+                                        📱 Cliente (Terminal)
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group" id="grupo-cfg-server-ip">
+                                <label for="cfg-server-ip">Dirección IP del Servidor Central</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="cfg-server-ip" placeholder="Ej. 192.168.43.1" style="flex: 1;">
+                                    <button type="button" id="btn-auto-detectar-red" class="secondary-btn" style="white-space: nowrap; font-weight: 700;">
+                                        🔍 Auto-Detectar
+                                    </button>
+                                </div>
+                                <p class="campo-nota" id="cfg-net-nota">
+                                    Si las tablets están en la misma red Wi-Fi, pulsa "Auto-Detectar" o escribe la IP del servidor.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="reporte-acciones" style="margin-top: 15px;">
+                            <button type="button" id="btn-guardar-config-red" class="primary-btn">
+                                💾 Guardar y Conectar
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- 5b. MODAL DE COBRO
+         Una sola pantalla para cobrar: el total arriba, la forma de pago en
+         pestañas y un único botón que confirma. Nada de ir sumando pagos de
+         uno en uno mientras hay cola en la barra. -->
+
+    <!-- 5. VISTA PREVIA DE TICKETS (COMANDA) -->
+    <!-- Los dos tickets se generan desde el mismo modelo que se envía a la
+         impresora, así que esta vista previa es carácter por carácter lo que
+         saldrá por el papel. -->
+    <div id="print-modal" class="modal-overlay hide">
+        <div class="print-container">
+            <div class="print-header">
+                <h2 class="print-title" style="margin: 0;">🧾 Vista previa de Comanda</h2>
+                <button type="button" id="close-print-modal-btn" class="modal-close-btn"
+                    style="position: static; cursor: pointer; flex-shrink: 0;" title="Cerrar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="tickets-row">
+                <!-- Copia del Cajero -->
+                <div class="thermal-ticket">
+                    <div class="ticket-body" id="ticket-cajero-body"></div>
+                </div>
+
+                <!-- Copia del Mesero / Preparación -->
+                <div class="thermal-ticket">
+                    <div class="ticket-body" id="ticket-mesero-body"></div>
+                </div>
+            </div>
+
+            <div id="modal-print-status" class="print-status hide"></div>
+
+            <div class="print-actions">
+                <button type="button" id="print-rawbt-btn" class="primary-btn"
+                    style="min-width: 150px; font-weight: 700;">🖨️ Imprimir</button>
+                <button type="button" id="print-browser-btn" class="secondary-btn">📄 Por navegador</button>
+                <button type="button" id="dismiss-print-btn" class="secondary-btn"
+                    style="min-width: 120px; font-weight: 700;">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- La comanda del traspaso, ya impresa. Misma vista previa que los
+         tickets de venta: el bartender ve siempre el mismo papel. -->
+    <div id="traspaso-modal" class="modal-overlay hide">
+        <div class="print-container">
+            <h2 class="print-title">📦 Comanda de traspaso</h2>
+            <div class="tickets-row">
+                <div class="thermal-ticket">
+                    <div class="ticket-body" id="traspaso-body"></div>
+                </div>
+            </div>
+            <div class="print-actions">
+                <button type="button" id="traspaso-imprimir" class="primary-btn" style="min-width: 140px; font-weight: 700;">🖨️ Re-imprimir</button>
+                <button type="button" id="traspaso-navegador" class="secondary-btn">📄 Por navegador</button>
+                <button type="button" id="traspaso-cerrar" class="secondary-btn" style="min-width: 110px;">Listo / Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Editar un producto. El catálogo se monta con prisa y siempre hay algo
+         que corregir: un precio mal tecleado, un nombre a medias. Sin esto
+         había que borrar y volver a crear, y si ya se había vendido ni eso. -->
+    <div id="editar-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card editar-card">
+            <button type="button" id="editar-cerrar" class="modal-close-btn" title="Cancelar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+
+            <div class="modal-header">
+                <h2>Editar producto</h2>
+                <p id="editar-cual">—</p>
+            </div>
+
+            <div class="form-row-2col">
+                <div class="form-group">
+                    <label for="editar-nombre">Nombre</label>
+                    <input type="text" id="editar-nombre" maxlength="120">
+                </div>
+                <div class="form-group">
+                    <label for="editar-categoria">Categoría</label>
+                    <select id="editar-categoria"></select>
+                </div>
+            </div>
+
+            <div class="form-row-2col">
+                <div class="form-group">
+                    <label for="editar-precio">Precio de venta (Bs.)</label>
+                    <input type="number" id="editar-precio" min="0" step="0.5" inputmode="decimal">
+                </div>
+                <div class="form-group">
+                    <label for="editar-botella-vinculada">Botella de la que descuenta <span class="etiqueta-opcional">(Para Vasos / Shots)</span></label>
+                    <select id="editar-botella-vinculada">
+                        <option value="">Ninguna (Producto independiente)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row-2col">
+                <div class="form-group" id="editar-grupo-vasos" style="display: none;">
+                    <label for="editar-vasos-por-botella">Rendimiento <span class="etiqueta-opcional">(Vasos / Shots por botella)</span></label>
+                    <input type="number" id="editar-vasos-por-botella" min="1" max="100" value="10" placeholder="10">
+                </div>
+                <div class="form-group">
+                    <label for="editar-descripcion">Descripción</label>
+                    <input type="text" id="editar-descripcion" maxlength="250" placeholder="Ej. Medida o vaso...">
+                </div>
+            </div>
+                <!-- Foto del producto -->
+                <div class="form-group editar-foto-grupo" style="margin-top: 0; margin-bottom: 0;">
+                    <label>Foto del producto <small style="font-weight:400;text-transform:none">opcional</small></label>
+                    <div class="editar-foto-row">
+                        <div id="editar-foto-vista" class="foto-vista"><span class="foto-vacia">Sin foto</span></div>
+                        <button type="button" id="editar-foto-btn" class="secondary-btn">📷 Cambiar foto</button>
+                    </div>
+                </div>
+
+            <p class="campo-nota">
+                El stock no se cambia aquí: se mueve en <strong>Inventario</strong>,
+                para que quede el apunte de cuántas unidades entraron o salieron.
+            </p>
+
+            <button type="button" id="editar-guardar" class="primary-btn full-btn">
+                Guardar cambios
+            </button>
+        </div>
+    </div>
+
+    <!-- Editar categoría existente -->
+    <div id="editar-categoria-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card editar-card">
+            <button type="button" id="editar-categoria-cerrar" class="modal-close-btn" title="Cancelar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+
+            <div class="modal-header">
+                <h2>Editar categoría</h2>
+                <p id="editar-categoria-cual">—</p>
+            </div>
+
+            <div class="form-group">
+                <label for="editar-categoria-nombre">Nombre</label>
+                <input type="text" id="editar-categoria-nombre" maxlength="60" placeholder="Ej: Whiskys">
+            </div>
+            <div class="form-group">
+                <label for="editar-categoria-tipo">Tipo</label>
+                <select id="editar-categoria-tipo">
+                    <option value="BEBIDA">Bebida</option>
+                    <option value="COMIDA">Comida</option>
+                    <option value="OTRO">Otro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editar-categoria-descripcion">Descripción</label>
+                <input type="text" id="editar-categoria-descripcion" maxlength="200" placeholder="Breve descripción">
+            </div>
+
+            <button type="button" id="editar-categoria-guardar" class="primary-btn full-btn">
+                Guardar cambios
+            </button>
+        </div>
+    </div>
+
+    <!-- Editar Cajero -->
+    <div id="editar-cajero-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card editar-card">
+            <button type="button" id="editar-cajero-cerrar" class="modal-close-btn" title="Cancelar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+
+            <div class="modal-header">
+                <h2>Editar cajero</h2>
+                <p id="editar-cajero-cual">—</p>
+            </div>
+
+            <div class="form-group">
+                <label for="editar-cajero-nombre">Nombre y apellido</label>
+                <input type="text" id="editar-cajero-nombre" maxlength="100" placeholder="Ej: Ana Torres">
+            </div>
+            <div class="form-group">
+                <label for="editar-cajero-usuario">Usuario</label>
+                <input type="text" id="editar-cajero-usuario" maxlength="60" placeholder="Ej: cajero_1"
+                    autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="editar-cajero-password">Nueva contraseña <small
+                        style="font-weight:400;text-transform:none">(dejar vacío para conservar actual)</small></label>
+                <input type="password" id="editar-cajero-password" placeholder="••••••••" autocomplete="new-password">
+            </div>
+
+            <button type="button" id="editar-cajero-guardar" class="primary-btn full-btn">
+                Guardar cambios
+            </button>
+        </div>
+    </div>
+
+    <!-- Editar Mesero -->
+    <div id="editar-mesero-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card editar-card">
+            <button type="button" id="editar-mesero-cerrar" class="modal-close-btn" title="Cancelar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+
+            <div class="modal-header">
+                <h2>Editar mesero</h2>
+                <p id="editar-mesero-cual">—</p>
+            </div>
+
+            <div class="form-group">
+                <label for="editar-mesero-cajero">Cajero asignado</label>
+                <select id="editar-mesero-cajero"></select>
+            </div>
+            <div class="form-group">
+                <label for="editar-mesero-nombre">Nombre y apellido</label>
+                <input type="text" id="editar-mesero-nombre" maxlength="100" placeholder="Ej: Luis Mendoza">
+            </div>
+            <div class="form-group">
+                <label for="editar-mesero-pin">PIN de acceso</label>
+                <input type="password" id="editar-mesero-pin" maxlength="10" inputmode="numeric" placeholder="Ej: 1234">
+            </div>
+            <div class="form-group" style="margin-top: 4px;">
+                <label
+                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 700; color: #d97706;">
+                    <input type="checkbox" id="editar-mesero-cortesia"
+                        style="width: 18px; height: 18px; min-height: 18px; accent-color: #d97706; margin: 0; cursor: pointer;">
+                    <span>👑 Mesero de Cortesías (No cobra / 0 Bs. en reportes)</span>
+                </label>
+            </div>
+
+            <button type="button" id="editar-mesero-guardar" class="primary-btn full-btn">
+                Guardar cambios
+            </button>
+        </div>
+    </div>
+
+    <!-- Editar Encargado -->
+    <div id="editar-encargado-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card editar-card">
+            <button type="button" id="editar-encargado-cerrar" class="modal-close-btn" title="Cancelar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+
+            <div class="modal-header">
+                <h2>Editar encargado</h2>
+                <p id="editar-encargado-cual">—</p>
+            </div>
+
+            <div class="form-group">
+                <label for="editar-encargado-nombre">Nombre y apellido</label>
+                <input type="text" id="editar-encargado-nombre" maxlength="100" placeholder="Ej: Carlos Ramos">
+            </div>
+            <div class="form-group">
+                <label for="editar-encargado-usuario">Usuario</label>
+                <input type="text" id="editar-encargado-usuario" maxlength="60" placeholder="Ej: encargado_1"
+                    autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="editar-encargado-password">Nueva contraseña <small
+                        style="font-weight:400;text-transform:none">(dejar vacío para conservar actual)</small></label>
+                <input type="password" id="editar-encargado-password" placeholder="••••••••"
+                    autocomplete="new-password">
+            </div>
+
+            <button type="button" id="editar-encargado-guardar" class="primary-btn full-btn">
+                Guardar cambios
+            </button>
+        </div>
+    </div>
+
+    <!-- Mover stock a otra barra.
+         Tres pasos, uno por pantalla: a dónde va, qué producto y cuántas
+         unidades. De uno en uno y no todo en un formulario porque esto se hace
+         de pie, con la caja en una mano, y un formulario largo se rellena mal.
+         Al confirmar sale la comanda para el bartender que entrega. -->
+    <div id="mover-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card mover-card">
+            <button type="button" id="mover-cerrar" class="modal-close-btn" title="Cancelar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+
+            <div class="modal-header">
+                <h2 id="mover-titulo">¿A dónde va?</h2>
+                <p id="mover-subtitulo">Barra o almacén que la recibe</p>
+            </div>
+
+            <ol class="mover-pasos" aria-hidden="true">
+                <li class="mover-paso activa" data-paso="1">Destino</li>
+                <li class="mover-paso" data-paso="2">Producto</li>
+                <li class="mover-paso" data-paso="3">Unidades</li>
+            </ol>
+
+            <!-- Paso 1: destino u origen -->
+            <div id="mover-p1" class="mover-panel">
+                <!-- Sólo al agregar: hay que saber si se compró o si lo manda
+                     otra barra. Lo comprado costó dinero; lo traspasado ya
+                     estaba pagado, y en el cierre no se pueden mezclar. -->
+                <div id="mover-motivos" class="ingreso-tipos hide">
+                    <button type="button" class="ingreso-tipo activa" data-motivo="COMPRA">
+                        🧾 Compra
+                        <small>a un proveedor</small>
+                    </button>
+                    <button type="button" class="ingreso-tipo" data-motivo="TRASPASO">
+                        📦 Traspaso
+                        <small>de otra barra</small>
+                    </button>
+                </div>
+                <input type="text" id="mover-destino" class="pay-input" maxlength="120" placeholder="Ej. Barra VIP"
+                    autocomplete="off">
+                <div id="mover-destinos-usados" class="mover-sugerencias"></div>
+                <button type="button" id="mover-a-producto" class="primary-btn full-btn">Siguiente</button>
+            </div>
+
+            <!-- Paso 2: producto -->
+            <div id="mover-p2" class="mover-panel hide">
+                <input type="search" id="mover-buscar" class="pay-input" placeholder="Buscar producto"
+                    autocomplete="off">
+                <div id="mover-productos" class="mover-productos"></div>
+            </div>
+
+            <!-- Paso 3: unidades -->
+            <div id="mover-p3" class="mover-panel hide">
+                <p class="mover-elegido" id="mover-elegido">Producto</p>
+                <div class="mover-cantidad">
+                    <button type="button" id="mover-menos" class="cart-qty-btn" aria-label="Una menos">−</button>
+                    <input type="number" id="mover-unidades" class="mover-unidades" min="1" value="1"
+                        inputmode="numeric">
+                    <button type="button" id="mover-mas" class="cart-qty-btn" aria-label="Una más">+</button>
+                </div>
+                <p class="mover-disponible" id="mover-disponible"></p>
+                <div class="mover-rapidos" id="mover-rapidos"></div>
+                <input type="text" id="mover-nota" class="pay-input" maxlength="250"
+                    placeholder="Nota (opcional): quién lo lleva, etc.">
+                <div id="mover-lista" class="mover-lista"></div>
+                <p class="acciones-pista">
+                    Puedes mover varios productos de una vez: añádelos uno a uno
+                    y confirma al final.
+                </p>
+                <div class="mover-acciones">
+                    <button type="button" id="mover-otro" class="secondary-btn">
+                        ＋ Añadir a la lista
+                    </button>
+                    <button type="button" id="mover-confirmar" class="primary-btn">
+                        Confirmar y imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Elegir acompañante.
+         Una botella se vende con su refresco incluido. El cuadro sale al
+         ponerla en el carrito, porque preguntarlo al cobrar sería tarde: el
+         mesero ya se habría ido con el pedido tomado. -->
+    <div id="acomp-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card acomp-card">
+            <button type="button" id="acomp-cancelar" class="modal-close-btn" title="Cancelar y no añadir">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+
+            <div class="modal-header">
+                <p class="acomp-para">Acompañante para</p>
+                <h2 id="acomp-producto">Botella</h2>
+                <p class="acomp-nota">Va incluido, sin coste</p>
+            </div>
+
+            <div id="acomp-opciones" class="acomp-opciones">
+                <!-- Se rellena con los productos marcados como acompañante -->
+            </div>
+
+            <p id="acomp-vacio" class="acomp-vacio hide">
+                No hay ningún acompañante dado de alta. Márcalos en el panel de
+                administrador, en Productos &amp; Categorías.
+            </p>
+
+            <!-- Se elige la cantidad de cada uno y se acepta. Antes bastaba
+                 tocar uno y el cuadro se cerraba solo, así que no había forma
+                 de dar dos colas pequeñas cuando se acababa la de dos litros. -->
+            <div class="acomp-pie">
+                <p class="acomp-resumen" id="acomp-resumen">Elige el acompañamiento</p>
+                <button type="button" id="acomp-aceptar" class="primary-btn full-btn" disabled>
+                    Añadir al carrito
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="payment-modal" class="modal-overlay hide">
+        <div class="pay-sheet">
+            <button id="pay-close-btn" class="modal-close-btn" title="Volver al carrito">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+
+            <p class="pay-caption">Total a cobrar</p>
+            <p id="pay-total" class="pay-total">0.00 Bs.</p>
+
+            <div class="pay-tabs" id="pay-tabs">
+                <button type="button" class="pay-tab active" data-metodo="1">💵<span>Efectivo</span></button>
+                <button type="button" class="pay-tab" data-metodo="3">📱<span>QR</span></button>
+                <button type="button" class="pay-tab" data-metodo="2">💳<span>Tarjeta</span></button>
+                <button type="button" class="pay-tab" data-metodo="4">🏦<span>Transfer.</span></button>
+                <button type="button" class="pay-tab" data-metodo="mixto">🔀<span>Múltiple</span></button>
+            </div>
+
+            <!-- CORTESÍA: para meseros con perfil de cortesía -->
+            <div id="pay-panel-cortesia" class="pay-panel hide">
+                <div class="cortesia-box"
+                    style="text-align: center; padding: 16px 12px; background: #fef3c7; border: 2.5px solid #000; border-radius: 16px; box-shadow: 2px 2px 0px #000; margin-bottom: 12px;">
+                    <div style="font-size: 2rem; margin-bottom: 2px;">👑</div>
+                    <strong style="font-size: 1.05rem; color: #92400e; display: block;">PEDIDO DE CORTESÍA</strong>
+                    <p
+                        style="font-size: 0.8rem; color: #78350f; margin: 4px 0 0 0; line-height: 1.35; font-weight: 600;">
+                        No requiere cobro en caja ni se suma a la liquidación. En la base de datos se registra
+                        valorizado en <strong id="cortesia-val-monto">0.00 Bs.</strong> y descuenta el stock
+                        correctamente.
+                    </p>
+                </div>
+            </div>
+
+            <!-- EFECTIVO: con cuánto paga el cliente, para calcular el cambio -->
+            <div id="pay-panel-efectivo" class="pay-panel">
+                <p class="pay-label">¿Con cuánto paga? <span class="pay-hint">(opcional)</span></p>
+                <input type="number" id="pay-recibido" class="pay-input" min="0" step="0.01" inputmode="decimal"
+                    placeholder="Monto recibido">
+                <div id="pay-change-box" class="pay-change hide">
+                    <span>Cambio a devolver</span>
+                    <strong id="pay-change-amount">0.00 Bs.</strong>
+                </div>
+            </div>
+
+            <!-- QR: el cajero enseña el código de su propia banca móvil. Aquí sólo
+                 se recuerda el importe y se anota la referencia del comprobante,
+                 porque quien confirma el cobro es el cajero, no el sistema. -->
+            <div id="pay-panel-qr" class="pay-panel hide">
+                <div class="qr-cobro">
+                    <p class="qr-cobro-monto">El cliente debe transferir <strong id="qr-cobro-monto">0.00 Bs.</strong>
+                    </p>
+                </div>
+                <label class="pay-label" for="pay-referencia">
+                    Referencia del comprobante <span class="pay-hint">(la que muestra el cliente)</span>
+                </label>
+                <input type="text" id="pay-referencia" class="pay-input" maxlength="40"
+                    placeholder="Ej. últimos dígitos o nº de operación">
+            </div>
+
+            <!-- MIXTO: tantas líneas como haga falta, cada una con el método que sea -->
+            <div id="pay-panel-mixto" class="pay-panel hide">
+                <div id="pay-lineas" class="pay-lineas"></div>
+                <button type="button" id="pay-add-linea" class="secondary-btn full-btn">
+                    + Añadir forma de pago</button>
+                <div class="pay-resto-row">
+                    <span>Falta por cubrir</span>
+                    <strong id="pay-falta">0.00 Bs.</strong>
+                </div>
+            </div>
+
+            <div id="pay-error" class="pay-error hide"></div>
+
+            <button id="pay-confirm-btn" class="primary-btn full-btn pay-confirm">CONFIRMAR PAGO</button>
+        </div>
+    </div>
+
+    <!-- 6. VOID ORDER MODAL CONFIRMATION -->
+    <div id="void-confirm-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card">
+            <div class="modal-header">
+                <span class="security-icon">⚠️</span>
+                <h2>Confirmar Anulación</h2>
+                <p>Estás a punto de anular la Comanda <strong id="void-order-id-label">#1</strong></p>
+            </div>
+            <form id="void-order-form">
+                <input type="hidden" id="void-order-id-input">
+                <div class="form-group">
+                    <label for="void-reason">Motivo de Anulación</label>
+                    <input type="text" id="void-reason" placeholder="Ej. Cambio de pedido del cliente" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" id="cancel-void-btn" class="secondary-btn">Cancelar</button>
+                    <button type="submit" class="danger-btn">Anular Comanda</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: QUICK STOCK ACTION (+ ENTRADA / - SALIDA / AJUSTE) -->
+    <div id="stock-action-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card stock-modal-card">
+            <div class="stock-modal-header">
+                <div id="sam-img-container"
+                    style="width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.25); border-radius: 8px; font-size: 2rem;">
+                </div>
+                <div class="stock-modal-title-box">
+                    <h3 id="sam-title">Nombre del Producto</h3>
+                    <p>Stock actual: <strong id="sam-current-stock" style="color: #34d399;">0 uds</strong></p>
+                </div>
+            </div>
+
+            <div class="stock-type-selector">
+                <button type="button" class="stock-type-btn tipo-entrada active" data-type="ENTRADA">＋ Entrada</button>
+                <button type="button" class="stock-type-btn tipo-salida" data-type="SALIDA">− Salida</button>
+            </div>
+
+            <div class="form-group" style="margin: 0;">
+                <label id="sam-qty-label">Cantidad a ingresar</label>
+                <div class="stock-qty-stepper">
+                    <button type="button" id="sam-minus-btn">−</button>
+                    <input type="number" id="sam-qty-input" min="1" value="10">
+                    <button type="button" id="sam-plus-btn">＋</button>
+                </div>
+            </div>
+
+            <div class="stock-preset-chips">
+                <span class="stock-preset-chip" data-val="1">+1</span>
+                <span class="stock-preset-chip" data-val="6">+6</span>
+                <span class="stock-preset-chip" data-val="12">+12</span>
+                <span class="stock-preset-chip" data-val="24">+24</span>
+                <span class="stock-preset-chip" data-val="48">+48</span>
+                <span class="stock-preset-chip" data-val="100">+100</span>
+            </div>
+
+            <div class="stock-calc-preview">
+                <span>Resultado en inventario:</span>
+                <strong id="sam-preview-stock" style="color: #6ee7b7; font-size: 1.05rem;">10 uds</strong>
+            </div>
+
+            <div class="form-group" style="margin: 0;">
+                <label for="sam-reason">Motivo / Destino u Origen</label>
+                <input type="text" id="sam-reason" placeholder="Ej. Mandado a Barra 2 / Compra / Merma" required>
+            </div>
+
+            <div class="modal-actions" style="display: flex; gap: 10px; margin-top: 4px;">
+                <button type="button" id="sam-cancel-btn" class="secondary-btn full-btn">Cancelar</button>
+                <button type="button" id="sam-confirm-btn" class="primary-btn full-btn" style="font-weight: 700;">🖨️ Guardar e Imprimir Voucher</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PRODUCT STOCK HISTORY -->
+    <div id="stock-history-modal" class="modal-overlay hide">
+        <div class="glass-card modal-card" style="max-width: 650px; width: 95%;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 14px;">
+                <div>
+                    <h2 id="shm-title" style="margin: 0; font-size: 1.15rem;">Historial de Movimientos</h2>
+                    <p id="shm-subtitle" style="margin: 2px 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+                        Cargando registros...</p>
+                </div>
+                <button type="button" id="shm-close-btn" class="icon-btn" style="font-size: 1.2rem;"
+                    aria-label="Cerrar">✕</button>
+            </div>
+            <div class="table-container max-h-96">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Cant.</th>
+                            <th>Previo $\to$ Nuevo</th>
+                            <th>Responsable</th>
+                            <th>Fecha</th>
+                            <th>Motivo</th>
+                            <th>Voucher</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shm-table-body">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación estilizado (sustituye a window.confirm / localhost dice...) -->
+    <div id="confirm-modal" class="modal-overlay hide" role="dialog" aria-modal="true"
+        aria-labelledby="confirm-modal-titulo">
+        <div class="glass-card modal-card confirm-modal-card">
+            <button type="button" id="confirm-modal-cerrar" class="modal-close-btn" title="Cerrar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <div class="confirm-modal-badge" id="confirm-modal-badge">
+                <span id="confirm-modal-icono" class="confirm-modal-icon">🗑️</span>
+            </div>
+            <div class="confirm-modal-body">
+                <h3 id="confirm-modal-titulo" class="confirm-modal-title">¿Eliminar promoción?</h3>
+                <p id="confirm-modal-mensaje" class="confirm-modal-message"></p>
+                <div id="confirm-modal-nota-box" class="confirm-modal-nota-box hide">
+                    <p id="confirm-modal-nota" class="confirm-modal-nota"></p>
+                </div>
+            </div>
+            <div class="confirm-modal-actions">
+                <button type="button" id="confirm-modal-btn-cancelar" class="btn-confirm-cancelar">Cancelar</button>
+                <button type="button" id="confirm-modal-btn-aceptar" class="btn-confirm-aceptar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Apple Face ID Biometric Unlock (PIN 0000) -->
+    <div id="modal-reconocimiento-facial" class="modal-overlay hide">
+        <div class="glass-card modal-card faceid-modal-card">
+            <div class="faceid-header">
+                <div class="faceid-badge-icon">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                </div>
+                <h2>Face ID</h2>
+                <p>Acceso Administrador (PIN 0000)</p>
+            </div>
+
+            <div class="faceid-viewport-box">
+                <video id="facial-video" autoplay playsinline muted></video>
+                <img id="facial-mobile-preview" class="hide" style="width: 100%; height: 100%; object-fit: cover;" alt="Selfie">
+                <canvas id="facial-canvas" class="hide"></canvas>
+                <div class="faceid-ring-container">
+                    <div class="faceid-laser-sweep"></div>
+                    <div class="faceid-bracket top-left"></div>
+                    <div class="faceid-bracket top-right"></div>
+                    <div class="faceid-bracket bottom-left"></div>
+                    <div class="faceid-bracket bottom-right"></div>
+                    <div class="faceid-center-lock" id="faceid-center-lock">
+                        <span id="faceid-lock-icon">🔒</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faceid-status-bar escaneo-status-box">
+                <div id="facial-status-spinner" class="spinner-facial"></div>
+                <p id="facial-status-texto">Enfoca tu rostro al centro del círculo...</p>
+            </div>
+
+            <div class="escaneo-acciones faceid-acciones-wrap">
+                <!-- Entrada nativa para cámara de celular (funciona en HTTP y HTTPS) -->
+                <input type="file" id="faceid-mobile-input" accept="image/*" capture="user" class="hide">
+                
+                <button type="button" id="btn-faceid-mobile-cam" class="faceid-btn-mobile-cam">
+                    📸 Tomar Foto con Cámara Frontal
+                </button>
+
+                <a id="btn-faceid-switch-https" href="#" class="faceid-btn-https hide">
+                    🔒 Cambiar a HTTPS Seguro (Cámara en Vivo)
+                </a>
+
+                <div id="faceid-clave-box" class="hide faceid-clave-box-inner">
+                    <input type="password" id="input-admin-clave-fallback" placeholder="Contraseña o PIN de Admin..." class="faceid-clave-input">
+                    <button type="button" id="btn-submit-admin-clave" class="faceid-btn-submit">
+                        Ingresar a Admin
+                    </button>
+                </div>
+                <button type="button" id="btn-toggle-clave-admin" class="faceid-btn-toggle">
+                    🔑 Ingresar con Contraseña de Admin
+                </button>
+                <button type="button" id="btn-cancelar-escaneo" class="faceid-btn-cancel">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Registrar Face ID Admin (Captura en 3 Ángulos) -->
+    <div id="modal-registrar-rostro" class="modal-overlay hide">
+        <div class="glass-card modal-card registrar-faceid-card">
+            <button type="button" id="btn-cerrar-registrar-rostro" class="modal-close-btn" title="Cancelar">✕</button>
+            <div class="modal-header">
+                <h2>Configurar Face ID de Administrador</h2>
+                <p>Captura biométrica en 3 ángulos para habilitar el acceso con PIN 0000</p>
+            </div>
+
+            <div class="faceid-viewport-box reg-viewport">
+                <video id="reg-facial-video" autoplay playsinline muted></video>
+                <canvas id="reg-facial-canvas" class="hide"></canvas>
+                <div class="faceid-ring-container">
+                    <div class="faceid-laser-sweep"></div>
+                    <div class="faceid-bracket top-left"></div>
+                    <div class="faceid-bracket top-right"></div>
+                    <div class="faceid-bracket bottom-left"></div>
+                    <div class="faceid-bracket bottom-right"></div>
+                </div>
+            </div>
+
+            <!-- Pasos de Captura 3D -->
+            <div class="faceid-pose-steps">
+                <div class="pose-step" id="pose-step-1">
+                    <span class="step-num">1</span>
+                    <span class="step-lbl">Frente</span>
+                </div>
+                <div class="pose-step" id="pose-step-2">
+                    <span class="step-num">2</span>
+                    <span class="step-lbl">Giro Izquierdo</span>
+                </div>
+                <div class="pose-step" id="pose-step-3">
+                    <span class="step-num">3</span>
+                    <span class="step-lbl">Giro Derecho</span>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top:14px;">
+                <label for="reg-rostro-nombre">Nombre o etiqueta de usuario</label>
+                <input type="text" id="reg-rostro-nombre" placeholder="Ej. Admin Principal" maxlength="80" required>
+            </div>
+
+            <button type="button" id="btn-guardar-rostro" class="primary-btn full-btn" style="margin-top:14px;">
+                📸 Registrar Face ID (3 Ángulos)
+            </button>
+        </div>
+    </div>
+
+    <!-- Avisos flotantes. Sustituyen a alert(), que en Android abre un diálogo
+         del sistema: bloquea la caja y tapa la pantalla en plena venta. -->
+    <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+
+    <!-- Impresión térmica (ESC/POS + USB Nativo + RawBT) -->
+    <script src="rawbt.js?v=139"></script>
+    <!-- Deep Neural Face Recognition Library (100% Offline Local) -->
+    <script src="js/face-api.js"></script>
+    <!-- Main Client-side logic script -->
+    <script src="app.js?v=139"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => {
+                        console.log('✔ PWA Service Worker registrado correctamente:', reg.scope);
+                        reg.update();
+                    })
+                    .catch(err => console.warn('⚠ Fallo al registrar PWA Service Worker:', err));
+            });
+        }
+    </script>
+</body>
+
+</html>

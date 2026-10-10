@@ -1,0 +1,41 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch: # Permite compilar manualmente con un clic en la pestaña "Actions" de GitHub
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build-ios:
+    name: Compilar IPA para iPhone
+    runs-on: macos-14 # Máquina virtual Mac oficial en GitHub (Apple Silicon)
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Instalar dependencias de Flutter
+        run: flutter pub get
+
+      - name: Compilar aplicación iOS (Release sin firma)
+        run: flutter build ios --release --no-codesign
+
+      - name: Empaquetar como archivo .IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r -y MasterDrinks.ipa Payload
+          rm -rf Payload
+
+      - name: Subir archivo IPA como Artifact descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: MasterDrinks-iOS-IPA
+          path: MasterDrinks.ipa
+          retention-days: 14
